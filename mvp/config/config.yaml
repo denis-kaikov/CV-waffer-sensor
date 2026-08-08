@@ -1,0 +1,42 @@
+modbus:
+  host: 0.0.0.0
+  # Use 502 in production when the container has permission to bind privileged ports.
+  port: 1502
+
+cameras:
+  cassette_left:
+    driver: mock
+    serial_number: ""
+    exposure_us: 15000
+    gain_db: 2.0
+    timeout_ms: 3000
+    pixel_format: mono8
+
+  cassette_right:
+    driver: mock
+    serial_number: ""
+    exposure_us: 15000
+    gain_db: 2.0
+    timeout_ms: 3000
+    pixel_format: mono8
+
+processing:
+  canonical_size: [1600, 1200]
+  calibration_file: /app/data/calibration.yaml
+  model_dir: /app/data/models
+
+  # ArUco IDs 10..13 -> 100 mm, 20..23 -> 150 mm, 30..33 -> 200 mm.
+  aruco_type_groups:
+    10: 100
+    20: 150
+    30: 200
+
+  slot_counts:
+    100: 25
+    150: 25
+    200: 25
+
+  search_radius: 10
+  minimum_coverage: 0.55
+  minimum_score_ratio: 0.45
+  roi_column_coverage: 0.60

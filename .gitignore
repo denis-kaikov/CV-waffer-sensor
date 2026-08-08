@@ -1,0 +1,47 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.rsuser
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# MVP runtime data
+mvp/data/
+*.log
+
+# .NET
+**/bin/
+**/obj/
+*.pdb
+artifacts/
+
+# Dataset capture runtime and generated output
+Dataset_app/.appdata/
+Dataset_app/.profile/
+Dataset_app/.nuget_profile/
+Dataset_app/NuGet/
+Dataset_app/capture_plan_*.json
+Dataset_app/capture_plan.generated.json
+Dataset_app/labels.csv
+Dataset_app/labels.jsonl
+Dataset_app/progress.json
+Dataset_app/operator_guide.docx
+Dataset_app/operator_guide_render/
+Dataset_app/_operator_guide_assets/

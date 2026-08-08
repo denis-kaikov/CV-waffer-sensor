@@ -1,0 +1,38 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+*.rsuser
+*.suo
+*.pdb
+
+# IDE
+.vs/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Local caches and profiles
+.appdata/
+.profile/
+.nuget_profile/
+NuGet/
+
+# Build artifacts
+artifacts/
+
+# Generated plans and datasets
+capture_plan_*.json
+capture_plan.generated.json
+labels.csv
+labels.jsonl
+progress.json
+operator_guide.docx
+operator_guide_render/
+_operator_guide_assets/
+
+# Windows
+Thumbs.db
+Desktop.ini

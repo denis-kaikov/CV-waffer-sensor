@@ -1,0 +1,19 @@
+{
+  "project": "cassette_150mm_dataset_v1",
+  "cassette_size_mm": 150,
+  "slot_count": 25,
+  "shots_per_config": 1,
+  "default_exposure_us": 8000,
+  "default_gain": 0,
+  "configs": [
+    {
+      "id": "cfg_000001",
+      "name": "empty",
+      "normal_occupancy": "0000000000000000000000000",
+      "blocked_slots": "0000000000000000000000000",
+      "slot_states": "0000000000000000000000000",
+      "anomalies": [],
+      "operator_instruction": "Оставить кассету пустой."
+    }
+  ]
+}
