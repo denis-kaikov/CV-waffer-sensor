@@ -7,10 +7,16 @@ public sealed class DahengCameraService : ICameraService
 {
     public bool IsConnected { get; private set; }
     public bool IsLive { get; private set; }
-    public double ExposureUs { get; set; } = 8000;
-    public double Gain { get; set; } = 0;
+    public double ExposureUs { get; private set; } = 8000;
+    public double Gain { get; private set; } = 0;
     public string? SerialNumber { get; set; }
-    public int FrameTimeoutMs { get; set; } = 2000;
+    public int FrameTimeoutMs { get; set; } = 500;
+
+    public void ApplySettings(CameraSettings settings)
+    {
+        ExposureUs = settings.ExposureUs;
+        Gain = settings.Gain;
+    }
 
     public void Connect()
     {

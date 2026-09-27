@@ -16,10 +16,22 @@ public sealed class DahengCameraService : ICameraService
 
     public bool IsConnected { get; private set; }
     public bool IsLive { get; private set; }
-    public double ExposureUs { get; set; } = 8000;
-    public double Gain { get; set; } = 0;
+    public double ExposureUs { get; private set; } = 8000;
+    public double Gain { get; private set; } = 0;
     public string? SerialNumber { get; set; }
-    public int FrameTimeoutMs { get; set; } = 2000;
+    public int FrameTimeoutMs { get; set; } = 500;
+
+    public void ApplySettings(CameraSettings settings)
+    {
+        ExposureUs = settings.ExposureUs;
+        Gain = settings.Gain;
+
+        if (_remote is null) return;
+        TrySetEnum("ExposureAuto", "Off");
+        TrySetEnum("GainAuto", "Off");
+        TrySetFloat("ExposureTime", ExposureUs);
+        TrySetFloat("Gain", Gain);
+    }
 
     public void Connect()
     {
@@ -85,6 +97,7 @@ public sealed class DahengCameraService : ICameraService
     {
         if (!IsConnected) Connect();
         if (IsLive) return;
+        _stream!.SetAcqusitionBufferNumber(2);
         _stream!.StartGrab();
         _remote!.GetCommandFeature("AcquisitionStart").Execute();
         IsLive = true;
@@ -107,6 +120,9 @@ public sealed class DahengCameraService : ICameraService
         IFrameData? frameData = null;
         try
         {
+            // Drop frames accumulated while the UI was rendering the previous one.
+            // DQBuf then waits for a fresh frame instead of returning an old frame.
+            _stream.FlushQueue();
             frameData = _stream.DQBuf((uint)FrameTimeoutMs);
             if (frameData.GetStatus() != GX_FRAME_STATUS_LIST.GX_FRAME_STATUS_SUCCESS)
             {
@@ -137,10 +153,7 @@ public sealed class DahengCameraService : ICameraService
     private void ApplyBasicSettings()
     {
         if (_remote is null) return;
-        TrySetEnum("ExposureAuto", "Off");
-        TrySetEnum("GainAuto", "Off");
-        TrySetFloat("ExposureTime", ExposureUs);
-        TrySetFloat("Gain", Gain);
+        ApplySettings(new CameraSettings { ExposureUs = ExposureUs, Gain = Gain });
         TrySetEnum("TriggerMode", "Off");
         TrySetEnum("PixelFormat", "Mono8");
     }

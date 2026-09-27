@@ -10,6 +10,7 @@ public sealed class MainForm : Form
     private const int SidebarWidth = 360;
     private const int SidebarControlWidth = 320;
     private const int BrowseButtonWidth = 84;
+    private const int GainScale = 10;
 
     private readonly ComboBox _cameraMode = new()
     {
@@ -20,8 +21,30 @@ public sealed class MainForm : Form
     private readonly TextBox _planPath = new() { Width = SidebarControlWidth, Text = "capture_plan.json" };
     private readonly TextBox _datasetRoot = new() { Width = SidebarControlWidth, Text = Path.Combine(Environment.CurrentDirectory, "dataset_root") };
     private readonly TextBox _operatorName = new() { Width = SidebarControlWidth, Text = Environment.UserName };
-    private readonly TextBox _exposureUs = new() { Width = SidebarControlWidth, Text = "8000" };
-    private readonly TextBox _gain = new() { Width = SidebarControlWidth, Text = "0" };
+    private readonly TrackBar _exposureUs = new()
+    {
+        Minimum = 100,
+        Maximum = 30000,
+        Value = 8000,
+        SmallChange = 100,
+        LargeChange = 1000,
+        TickFrequency = 5000,
+        AutoSize = false,
+        Height = 34
+    };
+    private readonly TrackBar _gain = new()
+    {
+        Minimum = 0,
+        Maximum = 240,
+        Value = 0,
+        SmallChange = 1,
+        LargeChange = 10,
+        TickFrequency = 60,
+        AutoSize = false,
+        Height = 34
+    };
+    private readonly Label _exposureValue = new() { Text = "8000 мкс", TextAlign = ContentAlignment.MiddleRight };
+    private readonly Label _gainValue = new() { Text = "0.0 dB", TextAlign = ContentAlignment.MiddleRight };
 
     private readonly Button _browsePlan = CreateSidebarButton("Обзор");
     private readonly Button _browseDataset = CreateSidebarButton("Обзор");
@@ -74,7 +97,8 @@ public sealed class MainForm : Form
         BackColor = Color.FromArgb(245, 247, 250)
     };
 
-    private readonly System.Windows.Forms.Timer _liveTimer = new() { Interval = 150 };
+    private readonly System.Windows.Forms.Timer _liveTimer = new() { Interval = 75 };
+    private readonly System.Windows.Forms.Timer _settingsTimer = new() { Interval = 120 };
 
     private ICameraService _camera = new DahengCameraService();
     private DatasetWriter? _writer;
@@ -83,7 +107,6 @@ public sealed class MainForm : Form
     private LastCapture? _lastCapture;
     private int _currentConfigIndex;
     private int _shotIndex = 1;
-    private Bitmap? _lastFrame;
     private string _activeCameraMode = "Daheng";
     private bool _datasetCompleted;
 
@@ -96,6 +119,8 @@ public sealed class MainForm : Form
         _cameraMode.Items.AddRange(["Daheng", "Тестовая"]);
         _cameraMode.SelectedIndex = 0;
         _cameraMode.SelectedIndexChanged += (_, _) => RecreateCamera(force: true);
+        _exposureUs.ValueChanged += (_, _) => CameraSliderChanged();
+        _gain.ValueChanged += (_, _) => CameraSliderChanged();
 
         var sidebar = CreateSidebar();
         _details.Controls.Add(_instruction);
@@ -119,6 +144,11 @@ public sealed class MainForm : Form
         _prev.Click += (_, _) => PreviousConfig();
         _next.Click += (_, _) => NextConfig();
         _liveTimer.Tick += (_, _) => RefreshLive();
+        _settingsTimer.Tick += (_, _) =>
+        {
+            _settingsTimer.Stop();
+            ApplyCameraSettings(showStatus: true);
+        };
         FormClosing += (_, _) => Cleanup();
 
         UpdateUi();
@@ -140,8 +170,8 @@ public sealed class MainForm : Form
         AddField(sidebar, "Путь к конфигурации", CreatePathField(_planPath, _browsePlan));
         AddField(sidebar, "Папка датасета", CreatePathField(_datasetRoot, _browseDataset));
         AddField(sidebar, "Оператор", _operatorName);
-        AddField(sidebar, "Экспозиция, мкс", _exposureUs);
-        AddField(sidebar, "Усиление", _gain);
+        AddField(sidebar, "Экспозиция", CreateSliderField(_exposureUs, _exposureValue));
+        AddField(sidebar, "Усиление", CreateSliderField(_gain, _gainValue));
 
         sidebar.Controls.Add(_loadPlan);
         sidebar.Controls.Add(_connect);
@@ -195,6 +225,26 @@ public sealed class MainForm : Form
         return row;
     }
 
+    private static Control CreateSliderField(TrackBar slider, Label valueLabel)
+    {
+        slider.Dock = DockStyle.Fill;
+        valueLabel.Dock = DockStyle.Fill;
+
+        var row = new TableLayoutPanel
+        {
+            Width = SidebarControlWidth,
+            Height = 38,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 4)
+        };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
+        row.Controls.Add(slider, 0, 0);
+        row.Controls.Add(valueLabel, 1, 0);
+        return row;
+    }
+
     private static Button CreateSidebarButton(string text) => new()
     {
         Text = text,
@@ -231,6 +281,8 @@ public sealed class MainForm : Form
                 Configs = _plan.Configs.ToDictionary(c => c.Id, _ => new ProgressItem())
             });
             _progressStore.Save(Path.Combine(_writer.Paths.Root, "progress.json"));
+            _exposureUs.Value = Math.Clamp((int)Math.Round(_plan.DefaultExposureUs), _exposureUs.Minimum, _exposureUs.Maximum);
+            _gain.Value = Math.Clamp((int)Math.Round(_plan.DefaultGain * GainScale), _gain.Minimum, _gain.Maximum);
             ApplyCameraSettings();
             UpdateUi();
             SetStatus($"План загружен: {_plan.Project}");
@@ -304,16 +356,26 @@ public sealed class MainForm : Form
         _camera = selectedMode == "Тестовая" ? new MockCameraService() : new DahengCameraService();
     }
 
-    private void ApplyCameraSettings()
+    private void CameraSliderChanged()
     {
-        if (double.TryParse(_exposureUs.Text, out var exposure))
-        {
-            _camera.ExposureUs = exposure;
-        }
+        _exposureValue.Text = $"{_exposureUs.Value} мкс";
+        _gainValue.Text = $"{_gain.Value / (double)GainScale:0.0} dB";
+        _settingsTimer.Stop();
+        _settingsTimer.Start();
+    }
 
-        if (double.TryParse(_gain.Text, out var gain))
+    private void ApplyCameraSettings(bool showStatus = false)
+    {
+        _settingsTimer.Stop();
+        var settings = new CameraSettings
         {
-            _camera.Gain = gain;
+            ExposureUs = _exposureUs.Value,
+            Gain = _gain.Value / (double)GainScale
+        };
+        _camera.ApplySettings(settings);
+        if (showStatus)
+        {
+            SetStatus($"Применено: экспозиция {_camera.ExposureUs:0} мкс, усиление {_camera.Gain:0.0} dB");
         }
     }
 
@@ -343,7 +405,15 @@ public sealed class MainForm : Form
     private void RefreshLive()
     {
         if (!_camera.IsConnected) return;
-        RenderFrame(_camera.GrabFrame());
+        try
+        {
+            var frame = _camera.GrabFrame();
+            RenderFrame(frame, takeOwnership: true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ex.Message);
+        }
     }
 
     private void CaptureCurrent()
@@ -545,12 +615,11 @@ public sealed class MainForm : Form
         _progressStore.Save(Path.Combine(_writer.Paths.Root, "progress.json"));
     }
 
-    private void RenderFrame(Bitmap frame)
+    private void RenderFrame(Bitmap frame, bool takeOwnership = false)
     {
-        _lastFrame?.Dispose();
-        _lastFrame = new Bitmap(frame);
-        _preview.Image?.Dispose();
-        _preview.Image = new Bitmap(_lastFrame);
+        var previous = _preview.Image;
+        _preview.Image = takeOwnership ? frame : new Bitmap(frame);
+        previous?.Dispose();
     }
 
     private void UpdateUi()
@@ -673,8 +742,10 @@ public sealed class MainForm : Form
     private void Cleanup()
     {
         _liveTimer.Stop();
+        _settingsTimer.Stop();
         _camera.Dispose();
-        _lastFrame?.Dispose();
+        _preview.Image?.Dispose();
+        _preview.Image = null;
     }
 
     private string ResolvePlanPath(string input)

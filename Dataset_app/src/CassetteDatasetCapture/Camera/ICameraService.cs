@@ -6,8 +6,9 @@ public interface ICameraService : IDisposable
 {
     bool IsConnected { get; }
     bool IsLive { get; }
-    double ExposureUs { get; set; }
-    double Gain { get; set; }
+    double ExposureUs { get; }
+    double Gain { get; }
+    void ApplySettings(CameraSettings settings);
     void Connect();
     void Disconnect();
     void StartLive();
